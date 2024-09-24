@@ -15,7 +15,7 @@ from flask_cors import CORS
 import logging
 import time
 
-SHOW_FLASK_LOGS = False
+SHOW_FLASK_LOGS = False 
 
 if not SHOW_FLASK_LOGS:
     log = logging.getLogger('werkzeug')
@@ -26,10 +26,9 @@ app = Flask(__name__)
 #CORS(app)
 
 app.config['SECRET_KEY'] = 'secret!'
-app.config['DEBUG'] = False
+app.config['DEBUG'] = True
 
 
-game_mode= ""
 
 config_data = {}
 
@@ -89,9 +88,7 @@ def create_config_file(parser, config_data):
 
 @app.route('/')
 def index():
-    global game_mode
- 
-    game_mode = ""
+
     #only by sending this page first will the client be connected to the socketio instance
     return render_template('index.html')
 
@@ -140,14 +137,14 @@ def test_connect():
         #thread = socketio.start_background_task(randomNumberGenerator)
 
 
-@socketio.on('recieve_mode')
-def recieve_mode(mode):
-    global game_mode 
+# @socketio.on('recieve_mode')
+# def recieve_mode(mode):
+#     global game_mode 
 
-    print("GOT MODE: " + mode)
-    game_mode = mode
+#     print("GOT MODE: " + mode)
+#     game_mode = mode
 
-    socketio.emit("got game", "")
+#     socketio.emit("got game", "")
 
 
 cmap = {'solo': SoloGameController, 
@@ -156,7 +153,7 @@ cmap = {'solo': SoloGameController,
         'local': LocalGameController}
 
 @socketio.on('start')
-def prompt_mode(sid):
+def prompt_mode(sid, game_mode):
     '''
     args:
         sid: socket/session id of client
@@ -171,33 +168,35 @@ def prompt_mode(sid):
         g = Game(config_data[CONFIG_SECTION_NAME] if CONFIG_SECTION_NAME in config_data else None, socketio, name = request.sid)
 
         #g.graphics = True # test game.graphics after this point is the culprit
-       
-        ctype = cmap[game_mode]
-        gc = ctype(g)
-        games.append(gc)
+        if game_mode in cmap:
+            ctype = cmap[game_mode]
+            gc = ctype(g)
+            games.append(gc)
 
-        # # print("STARTING GAME FOR " + str(request.sid))
-        # mode = None
-        # if game_mode == "solo":
-        #     mode = gc.play_solo
-        # elif game_mode == "train":
-        #     mode = gc.train_AI
-        # elif game_mode.split("/")[0] == "winner":
+            # # print("STARTING GAME FOR " + str(request.sid))
+            # mode = None
+            # if game_mode == "solo":
+            #     mode = gc.play_solo
+            # elif game_mode == "train":
+            #     mode = gc.train_AI
+            # elif game_mode.split("/")[0] == "winner":
 
-        #     if game_mode.split("/")[1] == "record":
-        #         mode = gc.replay_genome
-        #     else:
-        #         mode = gc.replay_local_genome
+            #     if game_mode.split("/")[1] == "record":
+            #         mode = gc.replay_genome
+            #     else:
+            #         mode = gc.replay_local_genome
 
 
-        start_t = time.time()
-        score = gc.mode()
+            start_t = time.time()
+            score = gc.mode()
 
-        if game_mode != 'train':
-            socketio.emit('game_over', f"Score: {score}", to = request.sid)
+            if game_mode != 'train':
+                socketio.emit('game_over', f"Score: {score}", to = request.sid)
+            else:
+                config_data = {} # reset config after trainign is over
+            print("L175, seconds till game end: ", time.time() - start_t)
         else:
-            config_data = {} # reset config after trainign is over
-        print("L175, seconds till game end: ", time.time() - start_t)
+            print("Invalid game mode")
 
 
 

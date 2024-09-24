@@ -1,11 +1,11 @@
-export function initGame(socket){
+export function initGame(socket, gameMode){
     console.log("emmting quit to " + socket.id)
     //to quit any previous sessions
     socket.emit("quit", socket.id);
 
     //let mode = window.location.href.split('#')[-1]
 
-    socket.emit('start', socket.id);
+    socket.emit('start', socket.id, gameMode);
 
     
 }

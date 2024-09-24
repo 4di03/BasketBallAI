@@ -10,7 +10,7 @@ import neat
 import pickle
 from model.objects import Ball
 from model.Image import Image, Button
-from  model.objects import WIN_HEIGHT, WIN_WIDTH, STAT_FONT, BALL_IMG, BALL_SIZE, BRAIN_BALL_IMG, BEST_BALL_IMG,  BG_IMG, TICKS_PER_SEC
+from  model.objects import  TICKS_PER_SEC
 import json 
 import sys 
 import random
@@ -182,8 +182,6 @@ class GameController(ABC):
     def main(self, genomes, config):
         '''
         main method for the game, runs the game loop and emits screen data to client
-        args:
-            display: whether or not to emit screen data to client, if False, emit stdout string buffer to client
         '''
         global game_map
         nets = [] # list of neural networks
@@ -244,6 +242,7 @@ class GameController(ABC):
                 print(f"{round(get_ram_usage())} MB RAM used out of {round(get_max_available_ram())} MB available")
 
             if (tick_ct % skip_frames) == 0 and display: #only emit data for self.game.framerate frames per second TRYNG THIS
+                #tick_ct = 0
                 emitter.emit_data(socket= socket)
             
                 # socket.emit(emit_name, self.game.graphics, to = request.sid)

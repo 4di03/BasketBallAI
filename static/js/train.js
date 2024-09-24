@@ -18,7 +18,7 @@ function loadGame(){
 
 function openTextMode(mode, socket){
     console.log("OPENING TEXT MODE")
-    socket.emit("recieve_mode", mode)
+    //socket.emit("recieve_mode", mode)
     loadGame()
 
 
@@ -35,22 +35,19 @@ function openTextMode(mode, socket){
     });
 }
 
-function openCanvas(mode, socket){
+function openCanvas(mode){ // TODO: consolidate into a single function
     console.log("OPENING CANVAS")
-    socket.emit("recieve_mode", mode)
+    //socket.emit("recieve_mode", mode)
     loadGame()
 
-    //waiting for confirmation that mode was recieved
-    socket.on("got game", function(msg) {
 
-        setTimeout(
-            function(){
-                window.location.replace('../game');
-            }, 1000
+    setTimeout(
+        function(){
+            window.location.replace(`../game?gameMode=${mode}`);
+        }, 1000
 
-        );
+    );
 
-    });
 }
 
 
@@ -130,10 +127,10 @@ $(document).ready(function(){
         socket.on("confirm_config", function(msg){
         if (graphics_mode == "true"){
             console.log(socket)
-            openCanvas('train', socket);
+            openCanvas('train');
         } else{
             console.log(socket)
-            openTextMode('train', socket); 
+            openTextMode('train'); 
 
             //openTextMode('train', socket)
         }

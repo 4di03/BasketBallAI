@@ -20,6 +20,8 @@ You can using the training section configure the neuroevolution process and craf
 If your AI beats the record of the globally best AI, it will replace it as the 'record best AI'!
 
 TODO:
+ - increase concurrency by bumping number of workers using nginx or swapping to uWSGI. See [docs](https://flask-socketio.readthedocs.io/en/latest/deployment.html#gunicorn-web-server)
+ - remove coupling of framerate to ball velocity/gravity
  - Death animation in Solo mode
  - NEAT NN DISPLAY during training
  - No Graphics Training

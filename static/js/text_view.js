@@ -20,7 +20,7 @@ $(document).ready(function () {
 
     socket.on('connect', function () {
 
-        window.initGame(socket);
+        window.initGame(socket, "train");
 
         //socket.on('stdout', displayStdout);
 

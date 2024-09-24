@@ -2,9 +2,28 @@
 
 var imageMap = new Map();
 
+const DEBUG = true;
+const PROFILE = false;
 // consider socket.on('connect', function(){});
-
-
+// Function to get URL parameters
+function getQueryParam(param) {
+    let params = new URLSearchParams(window.location.search);
+    return params.get(param);
+}
+function profileFunction(targetFunction) {
+    if (PROFILE){
+    return function(...args) {
+        const startTime = performance.now(); // Start timer
+        const result = targetFunction.apply(this, args); // Call the original function
+        const endTime = performance.now(); // End timer
+        const executionTime = endTime - startTime;
+        console.log(`Execution time: ${executionTime.toFixed(2)} ms`);
+        return result;
+    };
+}else{
+    return targetFunction;
+}
+}
 $(document).ready(function () {
 
     var protocol = window.location.protocol;
@@ -17,8 +36,9 @@ $(document).ready(function () {
     var gameHeight = null;
     var gameArea = null;
     socket.on('connect', function () {
+        let gameMode = getQueryParam('gameMode');
 
-        window.initGame(socket);
+        window.initGame(socket, gameMode);
         
 
         var start = new Date();
@@ -138,8 +158,7 @@ $(document).ready(function () {
 
             messagesRecieved += 1
             let secondsElapsed = (new Date() - start) / 1000;
-
-            //console.log("Average messages per seconds: " + (messagesRecieved / secondsElapsed).toString())
+            
 
             ctx.canvas.width = window.innerWidth;
             ctx.canvas.height = window.innerHeight;
@@ -228,8 +247,15 @@ $(document).ready(function () {
 
 
             drawQuitButton(rect)
+            if (DEBUG){
+                let msg = "Average messages per seconds: " + (messagesRecieved / secondsElapsed).toString()
+                //console.log()
+                // ctx.fillStyle = 'white';
+                // ctx.font = "20px Verdana";
+                ctx.fillText(msg,.6*canvas.width, .1*canvas.height)
+                // ctx.fillText(socket.id + ": "  + secondsElapsed,.6*canvas.width, .1*canvas.height);
 
-            //lText(socket.id + ": "  + secondsElapsed,.6*canvas.width, .1*canvas.height);
+            }
 
         }
 
@@ -257,7 +283,7 @@ $(document).ready(function () {
 
 
             console.log(gameArea, " GAME AREA VALUE")
-            socket.on('screen', updateCanvas);
+            socket.on('screen', profileFunction(updateCanvas));
 
             socket.on('game_over', function (msg) {
                 ctx.fillStyle = 'white';
