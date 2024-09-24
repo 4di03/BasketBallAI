@@ -25,3 +25,28 @@ TODO:
  - No Graphics Training
  - Model saved indication
    
+## Dev Instructions ## 
+
+Run the game using Docker:
+
+```bash
+docker compose build 
+
+docker compose up
+
+```
+
+Run the game using venv:
+
+```bash
+pip install virtualenv # (first time only)
+
+virtualenv -p <python path> venv # (first time only)
+
+source venv/bin/activate
+
+
+pip install -r requirements.txt # (first time only)
+
+bash run.bash
+```
