@@ -23,6 +23,7 @@ from ReportingPopulation import ReportingPopulation
 sys.path.append('./util')
 from util import ScreenDataEmitter, get_ram_usage, get_max_available_ram
 import multiprocessing
+import threading
 
 # from application import config_data, create_config_file
 #
@@ -30,51 +31,45 @@ import multiprocessing
 # pydevd_pycharm.settrace('localhost', port=0, stdoutToServer=True, stderrToServer=True)
 
 socket = None
+DEBUG = True
+game_controller_map = {}
 
-game_map = {}
-
-GAME_FRAMERATE = 200
-
+GAME_FRAMERATE = 80#200
+MULTIPROCESS = True
 GET_RAM_USAGE = False
 
 CHOSEN_FPS = TICKS_PER_SEC
 num_processes = multiprocessing.cpu_count()  # Number of CPU cores available
 print("NUM AVAILABLE CPUS:", num_processes)
-#only for solo mode
-def make_move(input):
 
 
-    msg,sid= input.split("#")
-    game = game_map[sid]
+
+run_game = set() # set that dictates what games (denoted by clinet id) are running
+run_game_lock =threading.Lock()
 
 
-    if sid == request.sid and sid == game.name and game.solo:
-        if msg == "right" and len(game.balls) > 0:
-            game.balls[0].jump(True)
 
-        elif msg == "left" and len(game.balls) > 0:
-            game.balls[0].jump(False)
-
-
+            
+            
+            
 class Game:
     config_path = "./model/config.txt"
 
 
-    def __init__(self, custom_config, socketio : SocketIO,name = "no name", framerate = GAME_FRAMERATE):
+    def __init__(self, custom_config,clientID = "no name", framerate = GAME_FRAMERATE):
         '''
         args:
             framerate: How frequently
             TODO: move custom_config to controller, model should not know if visuals are sent to the view
         '''
-        global socket
-        self.name = name
+        #global socket
+        self.clientID = clientID
         self.balls = []
         self.images = []
         self.show_display_options = False
         os.environ["SDL_VIDEODRIVER"] = "dummy"
         self.kill = False
         self.net_type = neat.nn.FeedForwardNetwork
-        socket = socketio
         self.solo = False
         self.max_gens = None
         self.graphics = True
@@ -117,10 +112,13 @@ class Game:
             last_chunk = chunks.pop()
             chunks[-1] += last_chunk
 
-        with multiprocessing.Pool(processes=num_processes) as pool:
-            pool.starmap(self.move_ball_chunk, [(chunk, nets, ge, dt) for chunk in chunks])
-
-
+        if MULTIPROCESS:
+            with multiprocessing.Pool(processes=num_processes) as pool:
+                pool.starmap(self.move_ball_chunk, [(chunk, nets, ge, dt) for chunk in chunks])
+        else:
+            for chunk in chunks:
+                self.move_ball_chunk(chunk, nets, ge, dt)
+        
 
     def run_frame(self, pyClock, nets, ge, last_time = 0):
         '''
@@ -151,26 +149,43 @@ class Game:
             ball = self.balls[i]
 
             ball.move(nets, ge , i, self, dt)
-
             i -= 1
 
-
+    
 class GameController(ABC):
     '''
     Controller for Game object, runs the game , takes input, and runs NEAT after every frame.
     '''
-    def __init__(self, game):
-
+    def __init__(self, game, clientID):
+        run_game_lock.acquire() # to make sure only one thread adds to run_game at a time
+        run_game.add(game.clientID)
+        run_game_lock.release()
         self.game = game
-
+        self.clientID = clientID
+        game_controller_map[clientID] = self
 
     
+    def reinit_from_genomes(self, genomes, config):
+        '''
+        Reinitialize the game from genomes and config
+        '''
+        self.__init__(self.game, self.clientID, genomes, config)
 
     def show_train(self):
         self.train_AI(True)
 
-   
+    def handle_input(self,msg):
+        return # by default no user input is supported 
 
+    def quit(self):
+        # cleanup for quitting the game
+        if self.ge:
+            self.ge[0].fitness = sys.maxsize
+            self.kill = True
+        self.game.balls = [] 
+        run_game_lock.acquire()
+        run_game.remove(self.clientID)#[self.clientID] = False
+        run_game_lock.release()
     @abstractmethod
     def mode(self):
         '''
@@ -179,32 +194,33 @@ class GameController(ABC):
 
         raise NotImplementedError
 
-    def main(self, genomes, config):
+    def main(self, genomes = [], config = None, socket = None):
         '''
         main method for the game, runs the game loop and emits screen data to client
         '''
-        global game_map
-        nets = [] # list of neural networks
-        ge = [] # list of genomes
+        global game_controller_map
         display = self.game.graphics
+        ge = [] # list of genomes
+        nets = [] # list of neural networks
 
-
-        for genome_id , g in genomes:
+        for genome_id , g in genomes: # this is so that this function can be used for NEAT training in population.Run
             net = self.game.net_type.create(g, config)
             nets.append(net)
             Ball(self.game)
             g.fitness = 0
             ge.append(g)
-
+        self.ge = ge
+        self.nets = nets
+        
         b = None
         if len(self.game.balls) == 1:
             b = self.game.balls[0]
 
         pyClock = pygame.time.Clock()
-            
-        run = len(self.game.balls)
-        self.game.name = request.sid
-        game_map[request.sid] = self.game
+        
+        if len(self.game.balls):
+            run_game.add(self.game.clientID)
+
         tick_ct = 0
 
         emit_name = 'screen' #if not display else 'screen'
@@ -212,28 +228,17 @@ class GameController(ABC):
 
         emitter = ScreenDataEmitter(self.game, name = emit_name)
         #print("L126", run, display)
-        while run:  
+        last_send_time = time.time()
+        while self.game.clientID in run_game:  
             #print(len(self.game.balls))
             if len(self.game.balls) == 0:
-
-                return b.score if b is not None else b# end the game if no balls on screen
+                break
             last_time = time.time()
             tick_ct += 1
 
-            self.game.run_frame(pyClock, nets , ge, last_time = last_time)
-            socket.on_event('input', make_move) # non-decorator version of socket.on
+            self.game.run_frame(pyClock, self.nets , self.ge, last_time = last_time)
 
-            @socket.on('quit')
-            def quit_game(sid):
 
-                if sid in game_map:
-                    game = game_map[sid]
-                    if sid == request.sid and sid == game.name:
-                        # print("Quitting for " + sid +", " + str(self))
-                        if ge:
-                            ge[0].fitness = sys.maxsize
-                            game.kill = True
-                        game.balls = []
 
 
             skip_frames = round(TICKS_PER_SEC/self.game.framerate)
@@ -243,22 +248,34 @@ class GameController(ABC):
 
             if (tick_ct % skip_frames) == 0 and display: #only emit data for self.game.framerate frames per second TRYNG THIS
                 #tick_ct = 0
-                emitter.emit_data(socket= socket)
+                if DEBUG:
+                    if tick_ct % (TICKS_PER_SEC * 1) == 0:
+                        print(f"{self.clientID} game still running with request sid of : {request.sid}")
+                last_send_time = time.time()
+
+                emitter.emit_data(socket= socket) # sends to request.sid which is for client with clientID byu defualt
             
                 # socket.emit(emit_name, self.game.graphics, to = request.sid)
                 # socket.sleep(0)
 
             socket.sleep(0)# per https://stackoverflow.com/questions/55503874/flask-socketio-eventlet-error-client-is-gone-closing-socket
 
+        game_controller_map.pop(self.game.clientID)
+        return b.score if b is not None else b# end the game if no balls on screen
 
 
 class SoloGameController(GameController):
 
-    def mode(self):
+    def handle_input(self,msg):
+        if msg == "right" and len(self.game.balls) > 0:
+            self.game.balls[0].jump(True) # TODO: reduce usage of side effects
+
+        elif msg == "left" and len(self.game.balls) > 0:
+            self.game.balls[0].jump(False)
+    def mode(self, socket = None):
         Ball(self.game)
         self.game.solo = True
-        return self.main([],None)
-
+        return self.main(socket = socket)
 
 class TrainGameController(GameController):
 
@@ -267,7 +284,7 @@ class TrainGameController(GameController):
         super().__init__(game)
 
 
-    def train_AI(self):
+    def train_AI(self, socket = None):
         self.game.config_path = "./model/config.txt"
 
         graphics = self.game.graphics
@@ -285,7 +302,8 @@ class TrainGameController(GameController):
         # def fast_main(genomes, config):
         #     self.main(genomes,config, framerate = CHOSEN_FPS)
 
-        mfunc = self.main # decides whether to show graphics or not
+        main = lambda genomes, config : self.main(genomes,config, socket = socket)
+        mfunc = main # decides whether to show graphics or not
         winner = p.run(mfunc, self.game.max_gens)
 
 
@@ -311,8 +329,8 @@ class TrainGameController(GameController):
 
 
 
-    def mode(self):
-        self.train_AI()
+    def mode(self, socket = None):
+        self.train_AI(socket = socket)
         return None
     
 
@@ -336,8 +354,9 @@ class WinnerGameController(GameController):
         # Call game with only the loaded genome
         #print(f"L 314 replaying genome with {genome_path}")
         #self.game.graphics = True
-        return self.main(genomes, config)
-    def mode(self):
+        self.reinit_from_genomes(genomes, config)
+        return self.main()
+    def mode(self, socket = None):
 
         return self.replay_genome()
 
@@ -348,5 +367,5 @@ class LocalGameController(WinnerGameController):
     def replay_local_genome(self):
         return self.replay_genome(genome_path='model/local_winner.pkl')
     
-    def mode(self):
+    def mode(self, socket = None):
         return self.replay_local_genome()

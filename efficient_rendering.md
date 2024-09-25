@@ -15,3 +15,4 @@ with high latency.
 
 Questions:
     - will it be possibvle for the game to get much farther ahead in ticks than the rednering (will cause inputs form the user to be delayed)
+        investigate how rendering is keeping up with the game in its current state

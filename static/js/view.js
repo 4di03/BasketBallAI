@@ -24,6 +24,7 @@ function profileFunction(targetFunction) {
     return targetFunction;
 }
 }
+let previousClientID = null; // Variable to store the previous client ID
 $(document).ready(function () {
 
     var protocol = window.location.protocol;
@@ -36,6 +37,7 @@ $(document).ready(function () {
     var gameHeight = null;
     var gameArea = null;
     socket.on('connect', function () {
+
         let gameMode = getQueryParam('gameMode');
 
         window.initGame(socket, gameMode);
@@ -153,9 +155,12 @@ $(document).ready(function () {
             ctx.font = "20px Verdana";
             ctx.fillText("(M) Menu", rect.x, rect.y + 30, rect.width)
         }
-
+        let prev_update_time = new Date();
         function updateCanvas(objects) {
-
+            if (DEBUG){
+            //console.log(`Time since last update for ${socket.id}: ${new Date() - prev_update_time} ms`);
+            prev_update_time = new Date();
+            }
             messagesRecieved += 1
             let secondsElapsed = (new Date() - start) / 1000;
             
@@ -278,6 +283,8 @@ $(document).ready(function () {
         function runGame() {
 
             // alert(gameWidth, gameHeight);
+            previousClientID = socket.id; // only update this after the game begins to run
+            console.log(`Setting previousClientID to ${previousClientID}`);
 
             updateCanvas(JSON.stringify([]));
 
@@ -297,6 +304,18 @@ $(document).ready(function () {
                 console.log("recieving at view.js", msg);
             });
 
+
+            // // Add an event listener for the beforeunload event
+            // window.addEventListener('beforeunload', function (event) {
+            //     event.preventDefault();
+            //     event.returnValue = ' ';
+            //     if (DEBUG){
+            //         console.log(`Socket ID before unload event: ${socket.id}`);
+            //     }
+            //     // Call the returnToMenu function to quit the game and return to menu
+            //     console.log("Quitting game due to reload!")
+
+            // });
             document.addEventListener('keydown', function (event) {
                 if (event.key == "a") {
                     socket.emit("input", "left#" + socket.id);
@@ -304,7 +323,7 @@ $(document).ready(function () {
                     socket.emit("input", "right#" + socket.id);
                 } else if (event.key == "m") {
 
-                    window.returnToMenu(socket)
+                    window.returnToMenu(socket, socket.id)
                 }
             });
 
@@ -321,7 +340,7 @@ $(document).ready(function () {
                     height: 50
                 };
                 if (isInside(mousePos, rect)) {
-                    window.returnToMenu(socket)
+                    window.returnToMenu(socket, socket.id)
                 }
             }, false);
 

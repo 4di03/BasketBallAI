@@ -5,6 +5,8 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+    environment:
+      - PYTHONUNBUFFERED=TRUE
     ports:
       - "5000:5000"
     command: gunicorn --bind 0.0.0.0:5000 --workers 1 --worker-class eventlet -t 120 app:app

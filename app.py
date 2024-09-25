@@ -7,15 +7,16 @@ from flask_socketio import SocketIO, emit
 from flask import Flask, render_template, url_for, copy_current_request_context, request
 from random import random
 from threading import Thread, Event
-from model.Game import Game, GameController, SoloGameController, TrainGameController, WinnerGameController, LocalGameController
+from model.Game import Game, GameController, SoloGameController, TrainGameController, WinnerGameController, LocalGameController, DEBUG, run_game, game_controller_map
 from model.objects import WIN_HEIGHT, WIN_WIDTH
 import json
 import configparser
 from flask_cors import CORS
 import logging
 import time
-
-SHOW_FLASK_LOGS = False 
+from flask_socketio import join_room, leave_room
+import sys
+SHOW_FLASK_LOGS = False
 
 if not SHOW_FLASK_LOGS:
     log = logging.getLogger('werkzeug')
@@ -72,20 +73,6 @@ def create_config_file(parser, config_data):
 
         cfg.close()
 
-# def randomNumberGenerator():
-#     """
-#     Generate a random number every 2 seconds and emit to a socketio instance (broadcast)
-#     Ideally to be run in a separate thread?
-#     """
-#     #infinite loop of magical random numbers
-#     print("Making random numbers")
-#     while not thread_stop_event.isSet():
-#         number = round(random()*10, 3)
-#         print("number:" + str(number))
-#         socketio.emit('newnumber', {'number': number})
-#         socketio.sleep(2)
-
-
 @app.route('/')
 def index():
 
@@ -131,20 +118,6 @@ def test_connect():
     # need visibility of the global thread object
     print(f'Client {request.sid} connected')
 
-    #Start the random number generator thread only if the thread has not been started before.
-    # if not thread.is_alive():
-    #     print("Not Starting Thread")
-        #thread = socketio.start_background_task(randomNumberGenerator)
-
-
-# @socketio.on('recieve_mode')
-# def recieve_mode(mode):
-#     global game_mode 
-
-#     print("GOT MODE: " + mode)
-#     game_mode = mode
-
-#     socketio.emit("got game", "")
 
 
 cmap = {'solo': SoloGameController, 
@@ -161,51 +134,74 @@ def prompt_mode(sid, game_mode):
     global games
     global config_data
     # print(f'starting for {sid} with current request.id: {request.sid}')
-    if sid == request.sid: # check if the current request is the same as the one that sent the start message
-        #choose the gamemode for the game
-        socketio.emit('dimensions', json.dumps([WIN_WIDTH, WIN_HEIGHT]), to= request.sid)
+    if sid != request.sid:
+        raise Exception(f"Different sids, {sid} != {request.sid}")
 
-        g = Game(config_data[CONFIG_SECTION_NAME] if CONFIG_SECTION_NAME in config_data else None, socketio, name = request.sid)
+    join_room(sid)
 
-        #g.graphics = True # test game.graphics after this point is the culprit
-        if game_mode in cmap:
-            ctype = cmap[game_mode]
-            gc = ctype(g)
-            games.append(gc)
+    #choose the gamemode for the game
+    socketio.emit('dimensions', json.dumps([WIN_WIDTH, WIN_HEIGHT]), to= sid)
 
-            # # print("STARTING GAME FOR " + str(request.sid))
-            # mode = None
-            # if game_mode == "solo":
-            #     mode = gc.play_solo
-            # elif game_mode == "train":
-            #     mode = gc.train_AI
-            # elif game_mode.split("/")[0] == "winner":
+    custom_config = config_data[CONFIG_SECTION_NAME] if CONFIG_SECTION_NAME in config_data else None
+    g = Game(custom_config, clientID =sid)
 
-            #     if game_mode.split("/")[1] == "record":
-            #         mode = gc.replay_genome
-            #     else:
-            #         mode = gc.replay_local_genome
+    #g.graphics = True # test game.graphics after this point is the culprit
+    if game_mode in cmap:
+        ctype = cmap[game_mode]
+        game_controller = ctype(game = g, clientID = sid) # initalize game controller
+        games.append(game_controller)
 
+        start_t = time.time()
+        score = game_controller.mode(socket = socketio)
 
-            start_t = time.time()
-            score = gc.mode()
-
-            if game_mode != 'train':
-                socketio.emit('game_over', f"Score: {score}", to = request.sid)
-            else:
-                config_data = {} # reset config after trainign is over
-            print("L175, seconds till game end: ", time.time() - start_t)
+        if game_mode != 'train':
+            socketio.emit('game_over', f"Score: {score}", to = sid)
         else:
-            print("Invalid game mode")
+            config_data = {} # reset config after trainign is over
+            
+        if DEBUG:
+            print("seconds till game end: ", time.time() - start_t)
+        
+        leave_room(sid) # leave room after game is over
+    else:
+        raise Exception("Invalid game mode")
 
 
 
 
-@socketio.on('disconnect')
-def test_disconnect():
+#only for solo mode
+def make_move(input):
+    msg,clientID= input.split("#")
+    game_controller = game_controller_map[clientID]
+    if clientID != request.sid:
+        raise Exception(f"Different sids, {clientID} != {request.sid}")
+    if clientID != game_controller.clientID:
+        raise Exception(f"Different sids, {clientID} != {game_controller.clientID}")
+    game_controller.handle_input(msg)
+
+            
+socketio.on_event('input', make_move) # non-decorator version of socket.on
+
+
+
+@socketio.on('quit')
+def quit_game(clientID):
+    if DEBUG:
+        print(f"Quitting for {clientID}, {game_controller_map.keys()}")
+        #print(game_controller_map[clientID])
+    if clientID in game_controller_map:
+        game = game_controller_map[clientID]
+        game.quit()
+    else:
+        print(f"Game not found for {clientID}")
+
+@socketio.on('disconnect') # extra disconnect handler in case quit was somehow not called
+def handle_disconnect():
     print(f'Client {request.sid} disconnected')
-
-
+    quit_game(request.sid)
+    
+    
 if __name__ == '__main__':
+    print("Starting server")
     socketio.run(app)
     # app.run()
