@@ -164,12 +164,6 @@ class GameController(ABC):
         self.clientID = clientID
         game_controller_map[clientID] = self
 
-    
-    def reinit_from_genomes(self, genomes, config):
-        '''
-        Reinitialize the game from genomes and config
-        '''
-        self.__init__(self.game, self.clientID, genomes, config)
 
     def show_train(self):
         self.train_AI(True)
@@ -280,10 +274,6 @@ class SoloGameController(GameController):
 class TrainGameController(GameController):
 
 
-    def __init__(self,game):
-        super().__init__(game)
-
-
     def train_AI(self, socket = None):
         self.game.config_path = "./model/config.txt"
 
@@ -337,7 +327,7 @@ class TrainGameController(GameController):
 class WinnerGameController(GameController):
 
 
-    def replay_genome(self, framerate = TICKS_PER_SEC, genome_path="model/best_winner.pkl"):
+    def replay_genome(self, framerate = TICKS_PER_SEC, genome_path="model/best_winner.pkl", socket = None):
         # Load requried NEAT config
         config = neat.config.Config(neat.DefaultGenome, neat.DefaultReproduction, 
                                     neat.DefaultSpeciesSet, 
@@ -354,11 +344,10 @@ class WinnerGameController(GameController):
         # Call game with only the loaded genome
         #print(f"L 314 replaying genome with {genome_path}")
         #self.game.graphics = True
-        self.reinit_from_genomes(genomes, config)
-        return self.main()
+        return self.main(genomes, config, socket = socket)
     def mode(self, socket = None):
 
-        return self.replay_genome()
+        return self.replay_genome(socket = socket)
 
 
 class LocalGameController(WinnerGameController):

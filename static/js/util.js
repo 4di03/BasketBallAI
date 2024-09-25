@@ -1,4 +1,4 @@
-export function initGame(socket, gameMode){
+export function initGame(socket, gameMode) {
     // ßconsole.log("emmting quit to " + socket.id)
     // //to quit any previous sessions
     // socket.emit("quit", socket.id);
@@ -7,10 +7,10 @@ export function initGame(socket, gameMode){
 
     socket.emit('start', socket.id, gameMode);
 
-    
+
 }
 
-function returnToMenu(socket,clientID) {
+function returnToMenu(socket, clientID) {
     // clientID is the client's socket.id that is passed to the server
 
     console.log(`returning to menu using socket: ${socket} and clientID: ${clientID}`)
