@@ -217,6 +217,12 @@ function drawObjects(objects, ctx, dimensions) {
 }
 
 let prev_update_time = new Date();
+
+function resetCanvas(ctx) { 
+    ctx.canvas.width = window.innerWidth;
+    ctx.canvas.height = window.innerHeight;
+}
+
 function updateCanvas(frames, ctx, dimensions) {
 
     if (DEBUG) {
@@ -225,9 +231,8 @@ function updateCanvas(frames, ctx, dimensions) {
     messagesRecieved += 1
     let secondsElapsed = (new Date() - start) / 1000;
 
-
-    ctx.canvas.width = window.innerWidth;
-    ctx.canvas.height = window.innerHeight;
+    // reset canvas by resizing it
+    //resetCanvas(ctx);
     // console.log(objects)
 
     frames = JSON.parse(frames);
