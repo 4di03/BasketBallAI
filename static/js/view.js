@@ -156,7 +156,7 @@ $(document).ready(function () {
             ctx.fillText("(M) Menu", rect.x, rect.y + 30, rect.width)
         }
         let prev_update_time = new Date();
-        function updateCanvas(objects) {
+        function updateCanvas(frames) {
             if (DEBUG){
             //console.log(`Time since last update for ${socket.id}: ${new Date() - prev_update_time} ms`);
             prev_update_time = new Date();
@@ -169,89 +169,82 @@ $(document).ready(function () {
             ctx.canvas.height = window.innerHeight;
             // console.log(objects)
  
-            objects = JSON.parse(objects);
-            for (let i = 0; i < objects.length; i += 1) {
-                object = objects[i];
+            frames = JSON.parse(frames);
+            for (let j = 0; j < frames.length; j++){ // display each frame
+                let objects=  frames[j];
+                for (let i = 0; i < objects.length; i += 1) {
+                    object = objects[i];
 
-                images = object["images"]
+                    images = object["images"]
 
-                for (j = 0; j < images.length; j++) {
-                    let image = images[j];
-                    // console.log(image)
-                    let width = image[3];
-                    let height = image[4];
-                    let x = image[1];
-                    let y = image[2];
-                    let isReversed = image[5];
-                    let img_path = image[0]
-                    let src = "";
-                    if (isReversed) {
-                        img_split = img_path.split("/")
-                        imgName = img_split.pop()
-                        img_path = img_split.join("/") + "/reverse_" + imgName;
+                    for (j = 0; j < images.length; j++) {
+                        let image = images[j];
+                        // console.log(image)
+                        let width = image[3];
+                        let height = image[4];
+                        let x = image[1];
+                        let y = image[2];
+                        let isReversed = image[5];
+                        let img_path = image[0]
+                        let src = "";
+                        if (isReversed) {
+                            img_split = img_path.split("/")
+                            imgName = img_split.pop()
+                            img_path = img_split.join("/") + "/reverse_" + imgName;
 
+                        }
+                        src = "../" + img_path;
+
+
+                        // console.log(width)
+
+                        if (!imageMap.has(src)) {
+                            let img = new Image(width, height);
+                            img.src = src;
+
+                            img.onload = function () {
+
+                                imageMap.set(src, img);
+                            };
+
+                        }
+
+                        drawScaled(x, y, ctx, width, height, imageMap.get(src))
                     }
-                    src = "../" + img_path;
 
+                    texts = object["text"];
 
-                    // console.log(width)
+                    for (j = 0; j < texts.length; j++) {
+                        text = texts[j];
 
-                    if (!imageMap.has(src)) {
-                        let img = new Image(width, height);
-                        img.src = src;
-
-                        img.onload = function () {
-
-                            imageMap.set(src, img);
-                        };
-
+                        pos = text[0]
+                        word = text[1];
+                        color = text[2];
+                        font = (0.0250 * canvas.height).toString() + "px Arial";
+                        drawScaled(pos[0], pos[1] + 10, ctx, null, null, null, [word, font, color])
                     }
 
-                    drawScaled(x, y, ctx, width, height, imageMap.get(src))
+
+                    rects = object["rectangles"];
+
+                    for (j = 0; j < rects.length; j++) {
+                        rectangle = rects[j];
+                        pos = rectangle[0];
+                        dim = rectangle[1];
+                        color = rectangle[2]
+
+
+                        drawScaled(pos[0], pos[1], ctx, dim[0], dim[1], null, null, color)
+                    }
+
+                    ctx.font = "30px Bold Arial";
+                    ctx.fillStyle = "white";
+
+
                 }
-
-                texts = object["text"];
-
-                for (j = 0; j < texts.length; j++) {
-                    text = texts[j];
-
-                    pos = text[0]
-                    word = text[1];
-                    color = text[2];
-                    font = (0.0250 * canvas.height).toString() + "px Arial";
-                    drawScaled(pos[0], pos[1] + 10, ctx, null, null, null, [word, font, color])
-                }
-
-
-                rects = object["rectangles"];
-
-                for (j = 0; j < rects.length; j++) {
-                    rectangle = rects[j];
-                    pos = rectangle[0];
-                    dim = rectangle[1];
-                    color = rectangle[2]
-
-
-                    drawScaled(pos[0], pos[1], ctx, dim[0], dim[1], null, null, color)
-                }
-
-                ctx.font = "30px Bold Arial";
-                ctx.fillStyle = "white";
-
-
             }
 
 
-            //The rectangle should have x,y,width,height properties
-            var rect = {
-                x: canvas.width * .45,
-                y: canvas.height * .025,
-                width: 100,
-                height: 50
-            };
-
-
-            drawQuitButton(rect)
             if (DEBUG){
                 let msg = "Average messages per seconds: " + (messagesRecieved / secondsElapsed).toString()
                 //console.log()
@@ -288,6 +281,16 @@ $(document).ready(function () {
 
             updateCanvas(JSON.stringify([]));
 
+            //The rectangle should have x,y,width,height properties
+            var rect = {
+                x: canvas.width * .45,
+                y: canvas.height * .025,
+                width: 100,
+                height: 50
+            };
+
+
+            drawQuitButton(rect)
 
             console.log(gameArea, " GAME AREA VALUE")
             socket.on('screen', profileFunction(updateCanvas));
