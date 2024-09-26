@@ -8,6 +8,7 @@ services:
     environment:
       - PYTHONUNBUFFERED=TRUE
       - FRAME_BUFFER_SIZE=6 # the # of frames to buffer before emitting to client.
+      - TARGET_FRAME_RATE=80 # the target frame rate for the video stream.
     ports:
       - "5000:5000"
     command: gunicorn --bind 0.0.0.0:5000 --workers 1 --worker-class eventlet -t 120 app:app

@@ -34,7 +34,7 @@ socket = None
 DEBUG = True
 game_controller_map = {}
 
-GAME_FRAMERATE = 80#200
+GAME_FRAMERATE = int(os.environ["TARGET_FRAME_RATE"])#200
 MULTIPROCESS = True
 GET_RAM_USAGE = False
 
@@ -223,9 +223,9 @@ class GameController(ABC):
         emitter = ScreenDataEmitter(self.game, name = emit_name)
         #print("L126", run, display)
         last_send_time = time.time()
-        frame_buffer_size = int(os.environ.get("FRAME_BUFFER_SIZE", 1))
+        frame_buffer_size = int(os.environ.get("FRAME_BUFFER_SIZE"))
         print("frame buffer size", frame_buffer_size)
-        frame_ct = 0
+        frames = []
         while self.game.clientID in run_game:  
             #print(len(self.game.balls))
             if len(self.game.balls) == 0:
@@ -239,7 +239,6 @@ class GameController(ABC):
 
 
             skip_frames = round(TICKS_PER_SEC/self.game.framerate)
-            frames = []
             if tick_ct % (TICKS_PER_SEC * 2) == 0 and GET_RAM_USAGE:
                 print(f"{round(get_ram_usage())} MB RAM used out of {round(get_max_available_ram())} MB available")
 
@@ -247,26 +246,17 @@ class GameController(ABC):
                 #tick_ct = 0
                 if DEBUG:
                     if tick_ct % (TICKS_PER_SEC * 1) == 0:
-                        print(f"{self.clientID} game still running with request sid of : {request.sid}")
-                last_send_time = time.time()
+                        print(f"{self.clientID} game still running with request sid of : {request.sid}, {len(frames)}")
 
-                frame_ct += 1
                 frames.append(emitter.get_data())
-                if frame_ct % frame_buffer_size == 0:
+                if (len(frames) % frame_buffer_size) == 0:
                     
-                    socket.emit(emit_name,frames, to = request.sid)
+                    #print(f"emitting {len(frames)} frames")
+                    socket.emit(emit_name, json.dumps(frames), to = request.sid)
                     frames = []
-                    frame_ct = 0
-                    socket.sleep(0)
+                    socket.sleep(0)# per https://stackoverflow.com/questions/55503874/flask-socketio-eventlet-error-client-is-gone-closing-socket
 
-
-                emitter.emit_data(socket= socket) # sends to request.sid which is for client with clientID byu defualt
-            
-                # socket.emit(emit_name, self.game.graphics, to = request.sid)
-                # socket.sleep(0)
-
-            socket.sleep(0)# per https://stackoverflow.com/questions/55503874/flask-socketio-eventlet-error-client-is-gone-closing-socket
-
+        
         game_controller_map.pop(self.game.clientID)
         return b.score if b is not None else b# end the game if no balls on screen
 

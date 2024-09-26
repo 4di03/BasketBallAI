@@ -42,16 +42,16 @@ class DataEmitter(ABC):
         '''
         raise NotImplementedError
 
-    def emit_data(self,socket):
-        '''
-        emits data to client.
-        args:
-            name: name of event to emit to client
-            socket: SocketIO object
-            game: Game object
-        '''
-        socket.emit(self.name,self.get_data(), to = request.sid)
-        socket.sleep(0)
+    # def emit_data(self,socket):
+    #     '''
+    #     emits data to client.
+    #     args:
+    #         name: name of event to emit to client
+    #         socket: SocketIO object
+    #         game: Game object
+    #     '''
+    #     socket.emit(self.name,self.get_data(), to = request.sid)
+    #     socket.sleep(0)
 
 
 class ScreenDataEmitter(DataEmitter):
@@ -61,13 +61,13 @@ class ScreenDataEmitter(DataEmitter):
         self.game = game
     def get_data(self):
         '''
-        Gets jsonified screen data to emit to client
+        Gets list of balls data to emit to client
         '''
         balls_data = []
         for ball in self.game.balls:
             balls_data.append(ball.get_data())
 
-        return json.dumps(balls_data)
+        return balls_data
 
 
 class StringDataEmitter(DataEmitter):

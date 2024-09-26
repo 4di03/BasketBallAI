@@ -33,7 +33,7 @@ TODO:
 Run the game using Docker:
 
 ```bash
-docker compose build 
+docker compose build # only for when you change dependencies or Dockerfile
 
 docker compose up
 
