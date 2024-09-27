@@ -259,8 +259,8 @@ async function updateCanvas(frames, ctx, dimensions) {
         
         drawObjects(objects, ctx, dimensions);
         if (DEBUG) {
-            let msg = "Average Messages/s: " + (messagesRecieved / secondsElapsed).toString()
-            let avgFramesMsg = "Average Frames/s: " + (frames_drawn / secondsElapsed).toString()
+            let msg = "MSG/S: " + (messagesRecieved / secondsElapsed).toString()
+            let avgFramesMsg = "FPS: " + (frames_drawn / secondsElapsed).toString()
             ctx.fillText(msg, .6 * canvas.width, .1 * canvas.height)
             ctx.fillText(avgFramesMsg, .6 * canvas.width, .2 * canvas.height)
         }
@@ -279,10 +279,11 @@ async function updateCanvas(frames, ctx, dimensions) {
     }
 
 
-    if (frames_drawn > 100000000 || messagesRecieved > 100000000) {
+    if (secondsElapsed > 1) {
         // to prevent overflow
         frames_drawn = 0;
         messagesRecieved = 0;
+        secondsElapsed = 0;
         start = new Date();
     }
 
