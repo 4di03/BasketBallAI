@@ -218,12 +218,20 @@ function drawObjects(objects, ctx, dimensions) {
 
 let prev_update_time = new Date();
 
-function resetCanvas(ctx) { 
+function resizeCanvas(ctx) { // also has side effect of clearing canvas
     ctx.canvas.width = window.innerWidth;
     ctx.canvas.height = window.innerHeight;
 }
 
-function updateCanvas(frames, ctx, dimensions) {
+function clearCanvas(ctx) {
+    ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+}
+function sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+var timeOfLastFrame = null;
+async function updateCanvas(frames, ctx, dimensions) {
 
     if (DEBUG) {
         prev_update_time = new Date();
@@ -232,7 +240,7 @@ function updateCanvas(frames, ctx, dimensions) {
     let secondsElapsed = (new Date() - start) / 1000;
 
     // reset canvas by resizing it
-    //resetCanvas(ctx);
+    resizeCanvas(ctx);
     // console.log(objects)
 
     frames = JSON.parse(frames);
@@ -242,23 +250,35 @@ function updateCanvas(frames, ctx, dimensions) {
     const nFrames = frames.length;//Math.min(1,frames.length);
     for (let j = 0; j < nFrames; j++) { // display each frame
         let objects = frames[j];
-
+        clearCanvas(ctx); // clear canvas before drawing
+        var timeSinceLastFrameDrawn = 0;
+        if (timeOfLastFrame != null) {
+            timeSinceLastFrameDrawn = new Date() - timeOfLastFrame; // record time when objects are drawn.
+        }
+        timeOfLastFrame = new Date();
+        
         drawObjects(objects, ctx, dimensions);
+        if (DEBUG) {
+            let msg = "Average Messages/s: " + (messagesRecieved / secondsElapsed).toString()
+            let avgFramesMsg = "Average Frames/s: " + (frames_drawn / secondsElapsed).toString()
+            ctx.fillText(msg, .6 * canvas.width, .1 * canvas.height)
+            ctx.fillText(avgFramesMsg, .6 * canvas.width, .2 * canvas.height)
+        }
+
+
+        // sleep time to maintain a max framrate
+        // if we want to get N fps, we need at most 1/N seconds between frames
+        // so we sleep for 1/N - time taken to draw the frame
+        // if the time taken to draw the frame is more than 1/N seconds, we don't sleep to maintain the framerate
+        const sleepTime = Math.max(0,(1000/GAME_FRAMERATE) - (timeSinceLastFrameDrawn));
+        await sleep(sleepTime);
+
+        
 
         frames_drawn += 1;
     }
 
-    if (DEBUG) {
-        let msg = "Average Messages/s: " + (messagesRecieved / secondsElapsed).toString()
-        let avgFramesMsg = "Average Frames/s: " + (frames_drawn / secondsElapsed).toString()
-        //console.log()
-        // ctx.fillStyle = 'white';
-        // ctx.font = "20px Verdana";
-        ctx.fillText(msg, .6 * canvas.width, .1 * canvas.height)
-        ctx.fillText(avgFramesMsg, .6 * canvas.width, .2 * canvas.height)
 
-
-    }
     if (frames_drawn > 100000000 || messagesRecieved > 100000000) {
         // to prevent overflow
         frames_drawn = 0;
@@ -285,9 +305,9 @@ function isInside(pos, rect) {
     return pos.x > rect.x && pos.x < rect.x + rect.width && pos.y < rect.y + rect.height && pos.y > rect.y
 }
 
-function runGame(socket, ctx, dimensions) {
+async function runGame(socket, ctx, dimensions) {
 
-    updateCanvas(JSON.stringify([]), ctx);
+    await updateCanvas(JSON.stringify([]), ctx);
 
     console.log(dimensions.gameArea, " GAME AREA VALUE")
 
@@ -338,7 +358,7 @@ function runGame(socket, ctx, dimensions) {
 
 }
 
-$(document).ready(function () {
+$(document).ready(async function () {
 
     var protocol = window.location.protocol;
     var socket = io.connect(protocol + '//' + document.domain + ':' + location.port);
@@ -355,12 +375,7 @@ $(document).ready(function () {
 
         window.initGame(socket, gameMode);
 
-
-
-
-
-
-        socket.on('dimensions', function (msg) {
+        socket.on('dimensions', async function (msg) {
             console.log(msg)
             dims = JSON.parse(msg);
             gameWidth = dims[0];
@@ -368,7 +383,7 @@ $(document).ready(function () {
             gameArea = gameWidth * gameHeight;
             dimensions = {gameWidth, gameHeight, gameArea}
             console.log("RECIEVED DIMENSIONS")
-            runGame(socket, ctx, dimensions);
+            await runGame(socket, ctx, dimensions);
         });
 
 

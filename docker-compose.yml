@@ -7,7 +7,8 @@ services:
       dockerfile: Dockerfile
     environment:
       - PYTHONUNBUFFERED=TRUE
-      - FRAME_BUFFER_SIZE=6 # the # of frames to buffer before emitting to client.
+      - SOLO_FRAME_BUFFER_SIZE=3 # the # of frames to buffer before emitting to client for solo mode
+      - AI_FRAME_BUFFER_SIZE= 10 # the # of frames to buffer before emitting to client for AI mode (training and record model) TODO: simulate entire game very quickly and make this less choppy.
       - TARGET_FRAME_RATE=80 # the target frame rate for the video stream.
     ports:
       - "5000:5000"

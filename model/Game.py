@@ -187,6 +187,12 @@ class GameController(ABC):
         '''
 
         raise NotImplementedError
+    @abstractmethod
+    def get_frame_buffer_size(self):
+        """
+        Get the size of the frame buffer for this controller
+        """
+        raise NotImplementedError
 
     def main(self, genomes = [], config = None, socket = None):
         '''
@@ -223,8 +229,8 @@ class GameController(ABC):
         emitter = ScreenDataEmitter(self.game, name = emit_name)
         #print("L126", run, display)
         last_send_time = time.time()
-        frame_buffer_size = int(os.environ.get("FRAME_BUFFER_SIZE"))
-        print("frame buffer size", frame_buffer_size)
+        frame_buffer_size = self.get_frame_buffer_size()
+        #print("frame buffer size", frame_buffer_size)
         frames = []
         while self.game.clientID in run_game:  
             #print(len(self.game.balls))
@@ -269,6 +275,9 @@ class SoloGameController(GameController):
 
         elif msg == "left" and len(self.game.balls) > 0:
             self.game.balls[0].jump(False)
+    def get_frame_buffer_size(self):
+        return int(os.environ.get("SOLO_FRAME_BUFFER_SIZE"))
+
     def mode(self, socket = None):
         Ball(self.game)
         self.game.solo = True
@@ -276,6 +285,8 @@ class SoloGameController(GameController):
 
 class TrainGameController(GameController):
 
+    def get_frame_buffer_size(self):
+        return int(os.environ.get("AI_FRAME_BUFFER_SIZE"))
 
     def train_AI(self, socket = None):
         self.game.config_path = "./model/config.txt"
@@ -329,7 +340,8 @@ class TrainGameController(GameController):
 
 class WinnerGameController(GameController):
 
-
+    def get_frame_buffer_size(self):
+        return int(os.environ.get("AI_FRAME_BUFFER_SIZE"))
     def replay_genome(self, framerate = TICKS_PER_SEC, genome_path="model/best_winner.pkl", socket = None):
         # Load requried NEAT config
         config = neat.config.Config(neat.DefaultGenome, neat.DefaultReproduction, 
