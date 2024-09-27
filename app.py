@@ -170,15 +170,17 @@ def prompt_mode(sid, game_mode):
 
 
 #only for solo mode
-def make_move(input):
-    msg,clientID= input.split("#")
-    game_controller = game_controller_map[clientID]
-    if clientID != request.sid:
-        raise Exception(f"Different sids, {clientID} != {request.sid}")
-    if clientID != game_controller.clientID:
-        raise Exception(f"Different sids, {clientID} != {game_controller.clientID}")
-    game_controller.handle_input(msg)
-
+def make_move(msg):
+    clientID = request.sid
+    if clientID in game_controller_map:
+        game_controller = game_controller_map[clientID]
+        # if clientID != request.sid:
+        #     raise Exception(f"Different sids, {clientID} != {request.sid}")
+        # if clientID != game_controller.clientID:
+        #     raise Exception(f"Different sids, {clientID} != {game_controller.clientID}")
+        game_controller.handle_input(msg)
+    else:
+        print(f"Game not found for {clientID}, not handling input")
             
 socketio.on_event('input', make_move) # non-decorator version of socket.on
 
@@ -187,7 +189,7 @@ socketio.on_event('input', make_move) # non-decorator version of socket.on
 @socketio.on('quit')
 def quit_game(clientID):
     if DEBUG:
-        print(f"Quitting for {clientID}, {game_controller_map.keys()}")
+        print(f"Quitting for {clientID}")
         #print(game_controller_map[clientID])
     if clientID in game_controller_map:
         game = game_controller_map[clientID]

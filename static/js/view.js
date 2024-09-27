@@ -244,9 +244,9 @@ async function updateCanvas(frames, ctx, dimensions) {
     // console.log(objects)
 
     frames = JSON.parse(frames);
-    if (DEBUG) {
-        console.log(`Recieved ${frames.length} frames`);
-    }
+    // if (DEBUG) {
+    //     console.log(`Recieved ${frames.length} frames`);
+    // }
     const nFrames = frames.length;//Math.min(1,frames.length);
     for (let j = 0; j < nFrames; j++) { // display each frame
         let objects = frames[j];
@@ -329,10 +329,11 @@ async function runGame(socket, ctx, dimensions) {
     });
 
     document.addEventListener('keydown', function (event) {
+        console.log("Emitting input at ", new Date().getTime()/1000)
         if (event.key == "a") {
-            socket.emit("input", "left#" + socket.id);
+            socket.emit("input", "left" );
         } else if (event.key == "d") {
-            socket.emit("input", "right#" + socket.id);
+            socket.emit("input", "right");
         } else if (event.key == "m") {
 
             window.returnToMenu(socket, socket.id)

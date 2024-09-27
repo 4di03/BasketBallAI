@@ -35,7 +35,7 @@ DEBUG = True
 game_controller_map = {}
 
 GAME_FRAMERATE = int(os.environ["TARGET_FRAME_RATE"])#200
-MULTIPROCESS = True
+MULTIPROCESS = False # not worth it cause of overhead due to it being called very farmea
 GET_RAM_USAGE = False
 
 CHOSEN_FPS = TICKS_PER_SEC
@@ -172,14 +172,19 @@ class GameController(ABC):
         return # by default no user input is supported 
 
     def quit(self):
-        # cleanup for quitting the game
-        if self.ge:
+        # cleanup for quitting the game and preventing future runs
+        print(f"Quitting for {self.clientID}")
+        if self.ge: # TODO: handle this with dynamic dispatch instead
+            print("setting fitness to maxsize")
             self.ge[0].fitness = sys.maxsize
             self.kill = True
         self.game.balls = [] 
         run_game_lock.acquire()
         run_game.remove(self.clientID)#[self.clientID] = False
         run_game_lock.release()
+        if self.game.clientID in game_controller_map:
+            print(f"REMOVING {self.game.clientID} from game_controller_map")
+            game_controller_map.pop(self.game.clientID) 
     @abstractmethod
     def mode(self):
         '''
@@ -227,10 +232,7 @@ class GameController(ABC):
 
 
         emitter = ScreenDataEmitter(self.game, name = emit_name)
-        #print("L126", run, display)
-        last_send_time = time.time()
         frame_buffer_size = self.get_frame_buffer_size()
-        #print("frame buffer size", frame_buffer_size)
         frames = []
         while self.game.clientID in run_game:  
             #print(len(self.game.balls))
@@ -262,19 +264,23 @@ class GameController(ABC):
                     frames = []
                     socket.sleep(0)# per https://stackoverflow.com/questions/55503874/flask-socketio-eventlet-error-client-is-gone-closing-socket
 
-        
-        game_controller_map.pop(self.game.clientID)
-        return b.score if b is not None else b# end the game if no balls on screen
+
+            
+        final_score = b.score if b is not None else b
+        print("Game ending with final score of ", b.score if b is not None else b)
+        return final_score# end the game if no balls on screen
 
 
 class SoloGameController(GameController):
 
     def handle_input(self,msg):
+        #time.sleep(.1) # add 100 ms latency just to see how it feels
         if msg == "right" and len(self.game.balls) > 0:
             self.game.balls[0].jump(True) # TODO: reduce usage of side effects
 
         elif msg == "left" and len(self.game.balls) > 0:
             self.game.balls[0].jump(False)
+        print("Handled input at ", time.time())
     def get_frame_buffer_size(self):
         return int(os.environ.get("SOLO_FRAME_BUFFER_SIZE"))
 
@@ -318,11 +324,13 @@ class TrainGameController(GameController):
                 f.close()
 
             cur_highscore = int(open("model/highscore.txt", mode="rt").read())
-            if winner.fitness > cur_highscore:
+            
+            if winner.fitness != sys.maxsize and winner.fitness > cur_highscore:
+                print("overriding record winner")
+
                 with open("model/highscore.txt", mode = "w") as h:
                     h.write(str(winner.fitness))
                 
-                print("overriding record winner")
 
                 with open("model/best_winner.pkl", "wb") as f:
                     pickle.dump(winner, f)
@@ -368,8 +376,8 @@ class WinnerGameController(GameController):
 class LocalGameController(WinnerGameController):
 
 
-    def replay_local_genome(self):
-        return self.replay_genome(genome_path='model/local_winner.pkl')
+    def replay_local_genome(self, socket = None):
+        return self.replay_genome(genome_path='model/local_winner.pkl', socket = socket)
     
     def mode(self, socket = None):
-        return self.replay_local_genome()
+        return self.replay_local_genome(socket = socket)

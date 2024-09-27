@@ -35,7 +35,7 @@ HOOP_IMG = pygame.transform.scale(
 
 STAT_FONT = pygame.font.SysFont("comicsans", 50)
 
-ALLOWED_TIME = 2000#000 # time in ticks
+ALLOWED_TIME = 2000000 # time in ticks
 
 font = pygame.font.SysFont('Comic Sans MS', 10)
 
@@ -141,6 +141,19 @@ class Ball:
 
         return bottom < ground_top
 
+    def handle_death(self, nets, ge, i, game):
+        """
+        Handles when the ball loses
+        
+        TODO: incorporate proximity to hoop at death into fitness. Balls that lose closer to the basket should have a higher fitness than those that lose further away.
+        """
+        game.balls.pop(i) # remove ball from game
+
+        if nets and ge:
+            nets.pop(i) # remove net from game
+            ge.pop(i) # remove genome from game
+
+
     def move(self, nets , ge ,i,game, dt):
         if self.is_off_ground(GROUND):
             self.y_acc = ACC
@@ -148,16 +161,10 @@ class Ball:
         
         self.tick -= 1
 
-        if self.tick <= 0:
-     
-            game.balls.pop(i) # remove ball from game
-
-            if nets and ge:
-                nets.pop(i) # remove net from game
-                ge.pop(i) # remove genome from game
-
+        if self.tick <= 0: # if the ball is out of time 
+            
+            self.handle_death(nets, ge, i, game)
             return
-
 
         for bbox in self.hoop.rim.bboxes:
             self.collide(bbox, ge, i, dt)
@@ -189,7 +196,6 @@ class Ball:
             self.y = -200
         if nets and ge:
             if self.tick0 % 50 == 0:
-
                 output = nets[i].activate((self.hoop.x - self.x, self.hoop.y - self.y, 
                     self.x_vel, dy, self.tick/ALLOWED_TIME, self.y+BALL_SIZE > self.hoop.y))
 
@@ -264,7 +270,7 @@ class Ball:
                 self.y = bbox.y+bbox.height + 20
                 self.score += 1
                 if ge:
-                    ge[i].fitness += 100
+                    ge[i].fitness += 100 # increase fitness of genome because it made a basket
                 self.hoop = Hoop(self.game)
 
 
