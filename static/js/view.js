@@ -330,7 +330,7 @@ async function runGame(socket, ctx, dimensions) {
     });
 
     document.addEventListener('keydown', function (event) {
-        console.log("Emitting input at ", new Date().getTime()/1000)
+        //console.log("Emitting input at ", new Date().getTime()/1000)
         if (event.key == "a") {
             socket.emit("input", "left" );
         } else if (event.key == "d") {
