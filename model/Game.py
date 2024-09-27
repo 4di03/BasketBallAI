@@ -280,7 +280,7 @@ class SoloGameController(GameController):
 
         elif msg == "left" and len(self.game.balls) > 0:
             self.game.balls[0].jump(False)
-        print("Handled input at ", time.time())
+        #print("Handled input at ", time.time())
     def get_frame_buffer_size(self):
         return int(os.environ.get("SOLO_FRAME_BUFFER_SIZE"))
 
